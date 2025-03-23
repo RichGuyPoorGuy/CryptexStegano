@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cryptex - Steganography Tool</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="page-wrapper">
+    <header class="site-header fade-in">
+      <div class="container">
+        <div class="header-content">
+          <div class="logo">
+            <h1>Cryptex</h1>
+            <p class="tagline">Hide In Plain Sight</p>
+          </div>
+          <div class="theme-toggle">
+            <button id="theme-toggle-btn" aria-label="Toggle theme">
+              <svg id="sun-icon" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+              <svg id="moon-icon" class="icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div class="container">
+        <div class="tabs fade-in">
+          <button class="tab-btn active" data-tab="encode">Encode</button>
+          <button class="tab-btn" data-tab="decode">Decode</button>
+        </div>
+
+        <div class="tab-content fade-in" id="encode-tab">
+          <div class="app-card glass scale-in">
+            <h2>Hide Secret Messages in Images</h2>
+            <p>Upload an image and enter your secret message to hide it within the image pixels.</p>
+            
+            <div class="upload-section">
+              <div class="upload-area" id="encode-upload-area">
+                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p>Drag & drop an image here or <span class="accent-text">browse</span></p>
+                <input type="file" id="encode-file-input" accept="image/*" class="file-input" />
+              </div>
+              <div class="image-preview-container hidden" id="encode-preview-container">
+                <img id="encode-image-preview" alt="Preview" />
+                <button class="btn-icon remove-image" id="encode-remove-image">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label for="secret-message">Secret Message</label>
+              <textarea id="secret-message" placeholder="Enter your secret message here..."></textarea>
+            </div>
+            
+            <div class="form-group">
+              <div class="password-toggle">
+                <input type="checkbox" id="enable-password" />
+                <label for="enable-password">Password protect this message</label>
+              </div>
+              <div class="password-input-group hidden" id="password-input-group">
+                <input type="password" id="password" placeholder="Enter password" />
+              </div>
+            </div>
+            
+            <div class="action-buttons">
+              <button id="encode-btn" class="btn btn-primary">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                  <line x1="4" y1="22" x2="4" y2="15"></line>
+                </svg>
+                Encode Message
+              </button>
+            </div>
+          </div>
+          
+          <div class="results-section hidden" id="encode-results">
+            <div class="app-card glass scale-in">
+              <h2>Encoded Image</h2>
+              <p>Your message has been successfully hidden in the image.</p>
+              
+              <div class="result-image-container">
+                <img id="result-image" alt="Encoded Image" />
+              </div>
+              
+              <div class="action-buttons">
+                <button id="download-btn" class="btn btn-primary">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  Download Image
+                </button>
+                <button id="share-btn" class="btn btn-accent">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="18" cy="5" r="3"></circle>
+                    <circle cx="6" cy="12" r="3"></circle>
+                    <circle cx="18" cy="19" r="3"></circle>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                  </svg>
+                  Share
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content hidden fade-in" id="decode-tab">
+          <div class="app-card glass scale-in">
+            <h2>Reveal Hidden Messages</h2>
+            <p>Upload an image with a hidden message to reveal its contents.</p>
+            
+            <div class="upload-section">
+              <div class="upload-area" id="decode-upload-area">
+                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p>Drag & drop an image here or <span class="accent-text">browse</span></p>
+                <input type="file" id="decode-file-input" accept="image/*" class="file-input" />
+              </div>
+              <div class="image-preview-container hidden" id="decode-preview-container">
+                <img id="decode-image-preview" alt="Preview" />
+                <button class="btn-icon remove-image" id="decode-remove-image">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <div class="password-toggle">
+                <input type="checkbox" id="has-password" />
+                <label for="has-password">This message is password protected</label>
+              </div>
+              <div class="password-input-group hidden" id="decode-password-group">
+                <input type="password" id="decode-password" placeholder="Enter password" />
+              </div>
+            </div>
+            
+            <div class="action-buttons">
+              <button id="decode-btn" class="btn btn-primary">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 9l-9 9-9-9"></path>
+                  <path d="M3 9l9 9 9-9"></path>
+                  <path d="M3 9h18"></path>
+                  <path d="M21 9l-9-9-9 9"></path>
+                </svg>
+                Decode Message
+              </button>
+            </div>
+          </div>
+          
+          <div class="results-section hidden" id="decode-results">
+            <div class="app-card glass scale-in">
+              <h2>Decoded Message</h2>
+              <div class="form-group">
+                <textarea id="decoded-message" readonly></textarea>
+              </div>
+              
+              <div class="action-buttons">
+                <button id="copy-btn" class="btn btn-primary">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy to Clipboard
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer fade-in">
+      <div class="container">
+        <div class="footer-content">
+          <p>© 2025 Cryptex (MS). All rights reserved.</p>
+          <p>Protect your privacy with steganography.</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <div class="toast hidden" id="toast">
+    <div class="toast-content">
+      <span id="toast-message"></span>
+      <button class="toast-close" id="toast-close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
