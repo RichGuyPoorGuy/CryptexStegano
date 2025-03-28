@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Encode Button Click
-    encodeBtn.addEventListener('click', () => {
+    encodeBtn.addEventListener('click', async () => {
       // Validate inputs
       if (!encodeFileInput.files.length) {
         showToast('Please upload an image first');
@@ -199,182 +199,59 @@ document.addEventListener('DOMContentLoaded', function() {
       encodeBtn.innerHTML = '<span class="loader"></span> Encoding...';
       encodeBtn.disabled = true;
       
-      const file = encodeFileInput.files[0];
-      const reader = new FileReader();
-      
-      reader.onload = function(e) {
-        const image = new Image();
-        image.onload = function() {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          canvas.width = image.width;
-          canvas.height = image.height;
-          
-          // Draw the image on canvas
-          ctx.drawImage(image, 0, 0);
-          
-          // Get image data
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const pixels = imageData.data;
-          
-          // Prepare message
-          let message = secretMessageInput.value;
-          
-          // Apply password encryption if enabled
-          if (enablePasswordCheckbox.checked && passwordInput.value) {
-            message = simpleEncrypt(message, passwordInput.value);
-          }
-          
-          // Add a marker to identify if message is password protected
-          const marker = enablePasswordCheckbox.checked && passwordInput.value ? 'ENC:' : 'MSG:';
-          const finalMessage = marker + message;
-          
-          // Convert message to binary
-          const binary = textToBinary(finalMessage);
-          
-          // Check if image has enough pixels to store the message
-          if (binary.length > pixels.length / 4 * 3) {
-            showToast('Message too large for this image. Please use a larger image or a shorter message.');
-            encodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg> Encode Message';
-            encodeBtn.disabled = false;
-            return;
-          }
-          
-          // Hide message in the least significant bits
-          for (let i = 0; i < binary.length; i++) {
-            const pixelIndex = i * 4;
-            
-            if (pixelIndex < pixels.length - 4) {
-              const bit = parseInt(binary[i]);
-              
-              // Modify the least significant bit of the pixel
-              if (i % 3 === 0) {
-                pixels[pixelIndex] = bit === 1 ? makeOdd(pixels[pixelIndex]) : makeEven(pixels[pixelIndex]);
-              } else if (i % 3 === 1) {
-                pixels[pixelIndex + 1] = bit === 1 ? makeOdd(pixels[pixelIndex + 1]) : makeEven(pixels[pixelIndex + 1]);
-              } else {
-                pixels[pixelIndex + 2] = bit === 1 ? makeOdd(pixels[pixelIndex + 2]) : makeEven(pixels[pixelIndex + 2]);
-              }
-            }
-          }
-          
-          // Put the modified pixels back on the canvas
-          ctx.putImageData(imageData, 0, 0);
-          
-          // Show the result
-          resultImage.src = canvas.toDataURL('image/png');
-          encodeResults.classList.remove('hidden');
-          
-          // Reset button state
-          encodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg> Encode Message';
-          encodeBtn.disabled = false;
-          
-          // Scroll to results
-          encodeResults.scrollIntoView({ behavior: 'smooth' });
-          
-          showToast('Message successfully encoded!');
-        };
+      try {
+        const file = encodeFileInput.files[0];
+        const result = await encodeMessageInImage(file, secretMessageInput.value, 
+          enablePasswordCheckbox.checked ? passwordInput.value : null);
         
-        image.src = e.target.result;
-      };
-      
-      reader.readAsDataURL(file);
+        // Show the result
+        resultImage.src = result;
+        encodeResults.classList.remove('hidden');
+        
+        // Scroll to results
+        encodeResults.scrollIntoView({ behavior: 'smooth' });
+        showToast('Message successfully encoded!');
+      } catch (error) {
+        console.error('Encoding error:', error);
+        showToast(error.message || 'Error encoding message');
+      } finally {
+        encodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg> Encode Message';
+        encodeBtn.disabled = false;
+      }
     });
     
-    decodeBtn.addEventListener('click', () => {
-        // Validate inputs
-        if (!decodeFileInput.files.length) {
-          showToast('Please upload an image first');
-          return;
-        }
+    // Decode Button Click
+    decodeBtn.addEventListener('click', async () => {
+      // Validate inputs
+      if (!decodeFileInput.files.length) {
+        showToast('Please upload an image first');
+        return;
+      }
       
-        // Start decoding
-        decodeBtn.innerHTML = '<span class="loader"></span> Decoding...';
-        decodeBtn.disabled = true;
+      // Start decoding
+      decodeBtn.innerHTML = '<span class="loader"></span> Decoding...';
+      decodeBtn.disabled = true;
       
+      try {
         const file = decodeFileInput.files[0];
-        const reader = new FileReader();
-      
-        reader.onload = function(e) {
-          const image = new Image();
-          image.onload = function() {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-      
-            canvas.width = image.width;
-            canvas.height = image.height;
-      
-            // Draw the image on canvas
-            ctx.drawImage(image, 0, 0);
-      
-            // Get image data
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const pixels = imageData.data;
-      
-            // Extract binary message
-            let binary = '';
-            const maxBits = Math.min(pixels.length, 3000 * 8); // Limit to prevent processing too many pixels
-      
-            for (let i = 0; i < maxBits; i++) {
-              const pixelIndex = i * 4;
-      
-              if (pixelIndex < pixels.length - 4) {
-                if (i % 3 === 0) {
-                  binary += pixels[pixelIndex] % 2 === 1 ? '1' : '0';
-                } else if (i % 3 === 1) {
-                  binary += pixels[pixelIndex + 1] % 2 === 1 ? '1' : '0';
-                } else {
-                  binary += pixels[pixelIndex + 2] % 2 === 1 ? '1' : '0';
-                }
-              }
-            }
-      
-            // Convert binary to text
-            const extractedText = binaryToText(binary);
-      
-            // Check if message has a marker
-            if (extractedText.startsWith('MSG:')) {
-              // Message is not encrypted
-              const message = extractedText.substring(4);
-              decodedMessage.value = message;
-              decodeResults.classList.remove('hidden');
-              showToast('Message successfully decoded!');
-            } else if (extractedText.startsWith('ENC:')) {
-              // Message is encrypted
-              if (hasPasswordCheckbox.checked && decodePasswordInput.value) {
-                try {
-                  const encryptedMessage = extractedText.substring(4);
-                  const decryptedMessage = simpleDecrypt(encryptedMessage, decodePasswordInput.value);
-                  decodedMessage.value = decryptedMessage;
-                  decodeResults.classList.remove('hidden');
-                  showToast('Message successfully decoded!');
-                } catch (error) {
-                  showToast('Incorrect password or corrupted message.');
-                  console.error('Decryption error:', error);
-                }
-              } else {
-                // If the message is password-protected but no password is provided
-                showToast('Image is password protected. Please check the password option and enter the correct password.');
-                decodeResults.classList.add('hidden'); // Hide the results section
-              }
-            } else {
-              showToast('No hidden message found or the image format is not supported.');
-            }
-      
-            // Reset button state
-            decodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 9l-9 9-9-9"></path><path d="M3 9l9 9 9-9"></path><path d="M3 9h18"></path><path d="M21 9l-9-9-9 9"></path></svg> Decode Message';
-            decodeBtn.disabled = false;
-      
-            // Scroll to results
-            decodeResults.scrollIntoView({ behavior: 'smooth' });
-          };
-      
-          image.src = e.target.result;
-        };
-      
-        reader.readAsDataURL(file);
-      });
+        const password = hasPasswordCheckbox.checked ? decodePasswordInput.value : null;
+        const message = await decodeMessageFromImage(file, password);
+        
+        decodedMessage.value = message;
+        decodeResults.classList.remove('hidden');
+        
+        // Scroll to results
+        decodeResults.scrollIntoView({ behavior: 'smooth' });
+        showToast('Message successfully decoded!');
+      } catch (error) {
+        console.error('Decoding error:', error);
+        showToast(error.message || 'Error decoding message');
+        decodeResults.classList.add('hidden');
+      } finally {
+        decodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 9l-9 9-9-9"></path><path d="M3 9l9 9 9-9"></path><path d="M3 9h18"></path><path d="M21 9l-9-9-9 9"></path></svg> Decode Message';
+        decodeBtn.disabled = false;
+      }
+    });
     
     // Download Button Click
     downloadBtn.addEventListener('click', () => {
@@ -387,24 +264,25 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Share Button Click
-    shareBtn.addEventListener('click', () => {
+    shareBtn.addEventListener('click', async () => {
       if (navigator.share) {
-        // Convert base64 to blob for sharing
-        fetch(resultImage.src)
-          .then(res => res.blob())
-          .then(blob => {
-            const file = new File([blob], 'encoded-image.png', { type: 'image/png' });
-            navigator.share({
-              title: 'Encoded Image from Cryptex',
-              text: 'Check out this image with a hidden message!',
-              files: [file]
-            })
-              .then(() => showToast('Shared successfully!'))
-              .catch(error => {
-                console.error('Error sharing:', error);
-                showToast('Error sharing. Try downloading instead.');
-              });
+        try {
+          // Convert base64 to blob for sharing
+          const response = await fetch(resultImage.src);
+          const blob = await response.blob();
+          const file = new File([blob], 'encoded-image.png', { type: 'image/png' });
+          
+          await navigator.share({
+            title: 'Encoded Image from Cryptex',
+            text: 'Check out this image with a hidden message!',
+            files: [file]
           });
+          
+          showToast('Shared successfully!');
+        } catch (error) {
+          console.error('Error sharing:', error);
+          showToast('Error sharing. Try downloading instead.');
+        }
       } else {
         showToast('Web Share API not supported on this browser. Try downloading instead.');
       }
@@ -415,7 +293,15 @@ document.addEventListener('DOMContentLoaded', function() {
       decodedMessage.select();
       document.execCommand('copy');
       
-      showToast('Message copied to clipboard!');
+      // For modern browsers
+      navigator.clipboard.writeText(decodedMessage.value)
+        .then(() => showToast('Message copied to clipboard!'))
+        .catch(() => {
+          // Fallback for older browsers
+          decodedMessage.select();
+          document.execCommand('copy');
+          showToast('Message copied to clipboard!');
+        });
     });
     
     // Toast Close Button
@@ -444,7 +330,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         reader.readAsDataURL(file);
       } else {
-        showToast('Please select a valid image file');
+        showToast('Please select a valid image file (JPEG, PNG, etc.)');
       }
     }
     
@@ -487,75 +373,245 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     `;
     document.head.appendChild(style);
-  });
-  
-  // Utility Functions for Steganography
-  function makeEven(n) {
-    return n % 2 === 0 ? n : n - 1;
-  }
-  
-  function makeOdd(n) {
-    return n % 2 === 1 ? n : n + 1;
-  }
-  
-  function textToBinary(text) {
+});
+
+// Steganography Functions
+async function encodeMessageInImage(file, message, password = null) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            const image = new Image();
+            image.onload = function() {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Set canvas dimensions to image dimensions
+                    canvas.width = image.width;
+                    canvas.height = image.height;
+                    
+                    // Draw the image on canvas
+                    ctx.drawImage(image, 0, 0);
+                    
+                    // Get image data
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const pixels = imageData.data;
+                    
+                    // Prepare message
+                    let finalMessage = message;
+                    
+                    // Apply password encryption if enabled
+                    if (password) {
+                        finalMessage = simpleEncrypt(finalMessage, password);
+                    }
+                    
+                    // Add a marker to identify if message is password protected
+                    const marker = password ? 'ENC:' : 'MSG:';
+                    finalMessage = marker + finalMessage;
+                    
+                    // Convert message to binary with termination sequence
+                    const binary = textToBinary(finalMessage);
+                    
+                    // Check if image has enough pixels to store the message
+                    if (binary.length > pixels.length / 4 * 3) {
+                        reject(new Error('Message too large for this image. Please use a larger image or a shorter message.'));
+                        return;
+                    }
+                    
+                    // Hide message in the least significant bits
+                    for (let i = 0; i < binary.length; i++) {
+                        const pixelIndex = Math.floor(i / 3) * 4;
+                        const colorChannel = i % 3; // 0 = R, 1 = G, 2 = B
+                        
+                        if (pixelIndex < pixels.length - 4) {
+                            const bit = parseInt(binary[i]);
+                            
+                            // Modify the least significant bit of the pixel
+                            if (bit === 1) {
+                                pixels[pixelIndex + colorChannel] = makeOdd(pixels[pixelIndex + colorChannel]);
+                            } else {
+                                pixels[pixelIndex + colorChannel] = makeEven(pixels[pixelIndex + colorChannel]);
+                            }
+                        }
+                    }
+                    
+                    // Put the modified pixels back on the canvas
+                    ctx.putImageData(imageData, 0, 0);
+                    
+                    // Convert to PNG to avoid lossy compression
+                    const result = canvas.toDataURL('image/png');
+                    resolve(result);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            
+            image.onerror = function() {
+                reject(new Error('Failed to load image'));
+            };
+            
+            image.src = e.target.result;
+        };
+        
+        reader.onerror = function() {
+            reject(new Error('Failed to read file'));
+        };
+        
+        reader.readAsDataURL(file);
+    });
+}
+
+async function decodeMessageFromImage(file, password = null) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            const image = new Image();
+            image.onload = function() {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    canvas.width = image.width;
+                    canvas.height = image.height;
+                    
+                    // Draw the image on canvas
+                    ctx.drawImage(image, 0, 0);
+                    
+                    // Get image data
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const pixels = imageData.data;
+                    
+                    // Extract binary message
+                    let binary = '';
+                    const maxBits = Math.min(pixels.length, 100000 * 8); // Limit to prevent processing too many pixels
+                    
+                    for (let i = 0; i < maxBits; i++) {
+                        const pixelIndex = Math.floor(i / 3) * 4;
+                        const colorChannel = i % 3; // 0 = R, 1 = G, 2 = B
+                        
+                        if (pixelIndex < pixels.length - 4) {
+                            binary += (pixels[pixelIndex + colorChannel] % 2).toString();
+                        }
+                    }
+                    
+                    // Convert binary to text
+                    const extractedText = binaryToText(binary);
+                    
+                    // Check if message has a marker
+                    if (extractedText.startsWith('MSG:')) {
+                        // Message is not encrypted
+                        resolve(extractedText.substring(4));
+                    } else if (extractedText.startsWith('ENC:')) {
+                        // Message is encrypted
+                        if (password) {
+                            try {
+                                const encryptedMessage = extractedText.substring(4);
+                                const decryptedMessage = simpleDecrypt(encryptedMessage, password);
+                                resolve(decryptedMessage);
+                            } catch (error) {
+                                reject(new Error('Incorrect password or corrupted message.'));
+                            }
+                        } else {
+                            reject(new Error('Image is password protected. Please check the password option and enter the correct password.'));
+                        }
+                    } else {
+                        reject(new Error('No hidden message found or the image format is not supported.'));
+                    }
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            
+            image.onerror = function() {
+                reject(new Error('Failed to load image'));
+            };
+            
+            image.src = e.target.result;
+        };
+        
+        reader.onerror = function() {
+            reject(new Error('Failed to read file'));
+        };
+        
+        reader.readAsDataURL(file);
+    });
+}
+
+// Utility Functions for Steganography
+function makeEven(n) {
+    return n & ~1; // Clear the least significant bit
+}
+
+function makeOdd(n) {
+    return n | 1; // Set the least significant bit
+}
+
+function textToBinary(text) {
     let binary = '';
     for (let i = 0; i < text.length; i++) {
-      const charCode = text.charCodeAt(i);
-      const binaryChar = charCode.toString(2).padStart(8, '0');
-      binary += binaryChar;
+        const charCode = text.charCodeAt(i);
+        const binaryChar = charCode.toString(2).padStart(8, '0');
+        binary += binaryChar;
     }
-    // Add termination sequence
+    // Add termination sequence (null character)
     binary += '00000000';
     return binary;
-  }
-  
-  function binaryToText(binary) {
+}
+
+function binaryToText(binary) {
     let text = '';
     for (let i = 0; i < binary.length; i += 8) {
-      const byte = binary.substr(i, 8);
-      if (byte === '00000000') {
-        // Termination sequence found
-        break;
-      }
-      const charCode = parseInt(byte, 2);
-      if (charCode > 0) { // Ignore null characters
+        const byte = binary.substr(i, 8);
+        if (byte === '00000000' || byte.length < 8) {
+            // Termination sequence found or incomplete byte
+            break;
+        }
+        const charCode = parseInt(byte, 2);
         text += String.fromCharCode(charCode);
-      }
     }
     return text;
-  }
-  
-  // Simple encryption/decryption functions
-  function simpleEncrypt(text, key) {
+}
+
+// Simple encryption/decryption functions
+function simpleEncrypt(text, key) {
     let result = '';
     const keySum = key.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     
     for (let i = 0; i < text.length; i++) {
-      const charCode = text.charCodeAt(i);
-      const keyChar = key.charCodeAt(i % key.length);
-      const encryptedChar = String.fromCharCode(charCode ^ keyChar ^ (keySum % 256));
-      result += encryptedChar;
-    }
-    
-    return btoa(result); // Base64 encode for safer transmission
-  }
-  
-  function simpleDecrypt(encryptedText, key) {
-    try {
-      const text = atob(encryptedText); // Base64 decode
-      const keySum = key.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      let result = '';
-      
-      for (let i = 0; i < text.length; i++) {
         const charCode = text.charCodeAt(i);
         const keyChar = key.charCodeAt(i % key.length);
-        const decryptedChar = String.fromCharCode(charCode ^ keyChar ^ (keySum % 256));
-        result += decryptedChar;
-      }
-      
-      return result;
-    } catch (e) {
-      throw new Error('Decryption failed. Incorrect password or corrupted data.');
+        const encryptedChar = charCode ^ keyChar ^ (keySum % 256);
+        result += String.fromCharCode(encryptedChar);
     }
-  }
+    
+    // Base64 encode for safer transmission
+    return btoa(encodeURIComponent(result).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+        return String.fromCharCode(parseInt(p1, 16));
+    }));
+}
+
+function simpleDecrypt(encryptedText, key) {
+    try {
+        // Base64 decode
+        const decoded = atob(encryptedText);
+        const text = decodeURIComponent(Array.from(decoded).map(c => {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        
+        const keySum = key.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        let result = '';
+        
+        for (let i = 0; i < text.length; i++) {
+            const charCode = text.charCodeAt(i);
+            const keyChar = key.charCodeAt(i % key.length);
+            const decryptedChar = charCode ^ keyChar ^ (keySum % 256);
+            result += String.fromCharCode(decryptedChar);
+        }
+        
+        return result;
+    } catch (e) {
+        throw new Error('Decryption failed. Incorrect password or corrupted data.');
+    }
+}
