@@ -20,18 +20,18 @@
   
   .dark-mode {
     /* Dark Mode Variables */
-    --primary-color: #39FF14;
-    --primary-dark: #2ECC71;
+    --primary-color: #f77051;
+    --primary-dark: #f77051;
     --primary-light: #1E1E1E;
-    --accent-color: #FF00FF;
+    --accent-color: #b31b39;
     --text-color: #FFFFFF;
     --text-light: #CCCCCC;
     --text-lighter: #B2BEC3;
     --background: #000000;
     --surface: #1E1E1E;
     --border: #444444;
-    --shadow: 0 4px 6px rgba(57, 255, 20, 0.3);
-    --glow: 0 0 20px rgba(255, 0, 255, 0.5);
+    --shadow: 0 4px 6px #81061f;
+    --glow: 0 0 20px #f77051;
   }
   
   * {
@@ -271,7 +271,7 @@
   
   .dark-mode .glass {
     background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(57, 255, 20, 0.2);
+    border: 1px solid #81061f;
   }
   
   /* Form Styles */
@@ -311,7 +311,7 @@
   .dark-mode textarea:focus,
   .dark-mode input[type="text"]:focus,
   .dark-mode input[type="password"]:focus {
-    box-shadow: 0 0 0 2px rgba(255, 0, 255, 0.25);
+    box-shadow: 0 0 0 2px #87152c;
   }
   
   .password-toggle {
