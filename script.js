@@ -1,4 +1,3 @@
-// DOM Elements
 document.addEventListener('DOMContentLoaded', function() {
   // Theme toggle
   const themeToggleBtn = document.getElementById('theme-toggle-btn');
@@ -214,67 +213,90 @@ document.addEventListener('DOMContentLoaded', function() {
         // Draw the image on canvas
         ctx.drawImage(image, 0, 0);
         
-        // Get image data
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const pixels = imageData.data;
+        // Convert to JPEG with quality 0.8 to simulate WhatsApp compression
+        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.8);
         
-        // Prepare message
-        let message = secretMessageInput.value;
-        
-        // Apply password encryption if enabled
-        if (enablePasswordCheckbox.checked && passwordInput.value) {
-          message = simpleEncrypt(message, passwordInput.value);
-        }
-        
-        // Add a marker to identify if message is password protected
-        const marker = enablePasswordCheckbox.checked && passwordInput.value ? 'ENC:' : 'MSG:';
-        const finalMessage = marker + message;
-        
-        // Convert message to binary
-        const binary = textToBinary(finalMessage);
-        
-const maxBits = Math.min(pixels.length, 3000 * 8); // Limit to prevent processing too many pixels
-if (binary.length > maxBits) {
-
-          showToast('Message too large for this image. Please use a larger image or a shorter message.');
-          encodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg> Encode Message';
-          encodeBtn.disabled = false;
-          return;
-        }
-        
-        // Hide message in the least significant bits
-        for (let i = 0; i < binary.length; i++) {
-          const pixelIndex = i * 4;
+        // Load JPEG image for encoding
+        const jpegImage = new Image();
+        jpegImage.onload = function() {
+          canvas.width = jpegImage.width;
+          canvas.height = jpegImage.height;
+          ctx.drawImage(jpegImage, 0, 0);
           
-          if (pixelIndex < pixels.length - 4) {
-            const bit = parseInt(binary[i]);
+          // Get image data
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const pixels = imageData.data;
+          
+          // Prepare message
+          let message = secretMessageInput.value;
+          
+          // Apply password encryption if enabled
+          if (enablePasswordCheckbox.checked && passwordInput.value) {
+            message = simpleEncrypt(message, passwordInput.value);
+          }
+          
+          // Add a marker to identify if message is password protected
+          const marker = enablePasswordCheckbox.checked && passwordInput.value ? 'ENC:' : 'MSG:';
+          let finalMessage = marker + message;
+          
+          // Apply Reed-Solomon encoding
+          const rs = new ReedSolomon(10); // 10 bytes of error correction
+          const messageBytes = new TextEncoder().encode(finalMessage);
+          const maxMessageLength = Math.floor((pixels.length / 8) - 10); // Reserve space for ECC
+          if (messageBytes.length > maxMessageLength) {
+            showToast('Message too large for this image. Use a larger image or shorter message.');
+            encodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg> Encode Message';
+            encodeBtn.disabled = false;
+            return;
+          }
+          
+          const paddedMessage = new Uint8Array(maxMessageLength);
+          paddedMessage.set(messageBytes);
+          const encodedMessage = rs.encode(paddedMessage);
+          
+          // Convert encoded message to binary
+          let binary = '';
+          for (let byte of encodedMessage) {
+            binary += byte.toString(2).padStart(8, '0');
+          }
+          binary += '00000000'; // Termination sequence
+          
+          // Hide message in the least significant bits
+          for (let i = 0; i < binary.length; i++) {
+            const pixelIndex = i * 4;
             
-            // Modify the least significant bit of the pixel
-            if (i % 3 === 0) {
-              pixels[pixelIndex] = bit === 1 ? makeOdd(pixels[pixelIndex]) : makeEven(pixels[pixelIndex]);
-            } else if (i % 3 === 1) {
-              pixels[pixelIndex + 1] = bit === 1 ? makeOdd(pixels[pixelIndex + 1]) : makeEven(pixels[pixelIndex + 1]);
-            } else {
-              pixels[pixelIndex + 2] = bit === 1 ? makeOdd(pixels[pixelIndex + 2]) : makeEven(pixels[pixelIndex + 2]);
+            if (pixelIndex < pixels.length - 4) {
+              const bit = parseInt(binary[i]);
+              
+              // Modify the least significant bit of the pixel
+              if (i % 3 === 0) {
+                pixels[pixelIndex] = bit === 1 ? makeOdd(pixels[pixelIndex]) : makeEven(pixels[pixelIndex]);
+              } else if (i % 3 === 1) {
+                pixels[pixelIndex + 1] = bit === 1 ? makeOdd(pixels[pixelIndex + 1]) : makeEven(pixels[pixelIndex + 1]);
+              } else {
+                pixels[pixelIndex + 2] = bit === 1 ? makeOdd(pixels[pixelIndex + 2]) : makeEven(pixels[pixelIndex + 2]);
+              }
             }
           }
-        }
+          
+          // Put the modified pixels back on the canvas
+          ctx.putImageData(imageData, 0, 0);
+          
+          // Show the result as PNG (WhatsApp will convert to JPEG)
+          resultImage.src = canvas.toDataURL('image/png');
+          encodeResults.classList.remove('hidden');
+          
+          // Reset button state
+          encodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg> Encode Message';
+          encodeBtn.disabled = false;
+          
+          // Scroll to results
+          encodeResults.scrollIntoView({ behavior: 'smooth' });
+          
+          showToast('Message successfully encoded!');
+        };
         
-        // Put the modified pixels back on the canvas
-        ctx.putImageData(imageData, 0, 0);
-        
-        // Show the result
-        resultImage.src = canvas.toDataURL('image/png');
-        encodeResults.classList.remove('hidden');
-        
-        // Reset button state
-        encodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg> Encode Message';
-        encodeBtn.disabled = false;
-        
-        // Scroll to results
-        encodeResults.scrollIntoView({ behavior: 'smooth' });
-        
-        showToast('Message successfully encoded!');
+        jpegImage.src = jpegDataUrl;
       };
       
       image.src = e.target.result;
@@ -283,100 +305,121 @@ if (binary.length > maxBits) {
     reader.readAsDataURL(file);
   });
   
+  // Decode Button Click
   decodeBtn.addEventListener('click', () => {
-      // Validate inputs
-      if (!decodeFileInput.files.length) {
-        showToast('Please upload an image first');
-        return;
-      }
+    // Validate inputs
+    if (!decodeFileInput.files.length) {
+      showToast('Please upload an image first');
+      return;
+    }
     
-      // Start decoding
-      decodeBtn.innerHTML = '<span class="loader"></span> Decoding...';
-      decodeBtn.disabled = true;
+    // Start decoding
+    decodeBtn.innerHTML = '<span class="loader"></span> Decoding...';
+    decodeBtn.disabled = true;
     
-      const file = decodeFileInput.files[0];
-      const reader = new FileReader();
+    const file = decodeFileInput.files[0];
+    const reader = new FileReader();
     
-      reader.onload = function(e) {
-        const image = new Image();
-        image.onload = function() {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-    
-          canvas.width = image.width;
-          canvas.height = image.height;
-    
-          // Draw the image on canvas
-          ctx.drawImage(image, 0, 0);
-    
-          // Get image data
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const pixels = imageData.data;
-    
-let binary = '';
-// Adjust the maximum bits to account for JPEG compression
-const maxBits = Math.min(pixels.length, 3000 * 8); // Limit to prevent processing too many pixels
-
-    
-          for (let i = 0; i < maxBits; i++) {
-            const pixelIndex = i * 4;
-    
-            if (pixelIndex < pixels.length - 4) {
-              if (i % 3 === 0) {
-                binary += pixels[pixelIndex] % 2 === 1 ? '1' : '0';
-              } else if (i % 3 === 1) {
-                binary += pixels[pixelIndex + 1] % 2 === 1 ? '1' : '0';
-              } else {
-                binary += pixels[pixelIndex + 2] % 2 === 1 ? '1' : '0';
-              }
-            }
-          }
-    
-          // Convert binary to text
-          const extractedText = binaryToText(binary);
-    
-if (extractedText.startsWith('MSG:') || extractedText.startsWith('ENC:')) {
-
-            // Message is not encrypted
-            const message = extractedText.substring(4);
-            decodedMessage.value = message;
-            decodeResults.classList.remove('hidden');
-            showToast('Message successfully decoded!');
-          } else if (extractedText.startsWith('ENC:')) {
-            // Message is encrypted
-            if (hasPasswordCheckbox.checked && decodePasswordInput.value) {
-              try {
-                const encryptedMessage = extractedText.substring(4);
-                const decryptedMessage = simpleDecrypt(encryptedMessage, decodePasswordInput.value);
-                decodedMessage.value = decryptedMessage;
-                decodeResults.classList.remove('hidden');
-                showToast('Message successfully decoded!');
-              } catch (error) {
-                showToast('Incorrect password or corrupted message.');
-                console.error('Decryption error:', error);
-              }
+    reader.onload = function(e) {
+      const image = new Image();
+      image.onload = function() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = image.width;
+        canvas.height = image.height;
+        
+        // Draw the image on canvas
+        ctx.drawImage(image, 0, 0);
+        
+        // Get image data
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imageData.data;
+        
+        let binary = '';
+        const maxBits = Math.min(pixels.length, 3000 * 8); // Limit to prevent processing too many pixels
+        
+        for (let i = 0; i < maxBits; i++) {
+          const pixelIndex = i * 4;
+          
+          if (pixelIndex < pixels.length - 4) {
+            if (i % 3 === 0) {
+              binary += pixels[pixelIndex] % 2 === 1 ? '1' : '0';
+            } else if (i % 3 === 1) {
+              binary += pixels[pixelIndex + 1] % 2 === 1 ? '1' : '0';
             } else {
-              // If the message is password-protected but no password is provided
-              showToast('Image is password protected. Please check the password option and enter the correct password.');
-              decodeResults.classList.add('hidden'); // Hide the results section
+              pixels[pixelIndex + 2] % 2 === 1 ? '1' : '0';
             }
-          } else {
-            showToast('No hidden message found or the image format is not supported.');
           }
-    
-          // Reset button state
+        }
+        
+        // Extract bytes from binary
+        const bytes = [];
+        for (let i = 0; i < binary.length - 8; i += 8) {
+          const byte = binary.substr(i, 8);
+          if (byte === '00000000') {
+            break;
+          }
+          bytes.push(parseInt(byte, 2));
+        }
+        
+        // Apply Reed-Solomon decoding
+        const rs = new ReedSolomon(10);
+        let decodedBytes;
+        try {
+          decodedBytes = rs.decode(new Uint8Array(bytes));
+        } catch (e) {
+          showToast('Failed to decode message. Image may be corrupted or not encoded.');
           decodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 9l-9 9-9-9"></path><path d="M3 9l9 9 9-9"></path><path d="M3 9h18"></path><path d="M21 9l-9-9-9 9"></path></svg> Decode Message';
           decodeBtn.disabled = false;
-    
-          // Scroll to results
-          decodeResults.scrollIntoView({ behavior: 'smooth' });
-        };
-    
-        image.src = e.target.result;
+          return;
+        }
+        
+        // Convert bytes to text
+        const extractedText = new TextDecoder().decode(decodedBytes);
+        
+        if (extractedText.startsWith('MSG:') || extractedText.startsWith('ENC:')) {
+          let message = extractedText.substring(4);
+          
+          // Handle encrypted message
+          if (extractedText.startsWith('ENC:')) {
+            if (hasPasswordCheckbox.checked && decodePasswordInput.value) {
+              try {
+                message = simpleDecrypt(message, decodePasswordInput.value);
+              } catch (error) {
+                showToast('Incorrect password or corrupted message.');
+                decodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 9l-9 9-9-9"></path><path d="M3 9l9 9 9-9"></path><path d="M3 9h18"></path><path d="M21 9l-9-9-9 9"></path></svg> Decode Message';
+                decodeBtn.disabled = false;
+                return;
+              }
+            } else {
+              showToast('Image is password protected. Please check the password option and enter the correct password.');
+              decodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 9l-9 9-9-9"></path><path d="M3 9l9 9 9-9"></path><path d="M3 9h18"></path><path d="M21 9l-9-9-9 9"></path></svg> Decode Message';
+              decodeBtn.disabled = false;
+              return;
+            }
+          }
+          
+          decodedMessage.value = message;
+          decodeResults.classList.remove('hidden');
+          showToast('Message successfully decoded!');
+        } else {
+          showToast('No hidden message found or the image format is not supported.');
+        }
+        
+        // Reset button state
+        decodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 9l-9 9-9-9"></path><path d="M3 9l9 9 9-9"></path><path d="M3 9h18"></path><path d="M21 9l-9-9-9 9"></path></svg> Decode Message';
+        decodeBtn.disabled = false;
+        
+        // Scroll to results
+        decodeResults.scrollIntoView({ behavior: 'smooth' });
       };
+      
+      image.src = e.target.result;
+    };
     
-      reader.readAsDataURL(file);
-    });
+    reader.readAsDataURL(file);
+  });
   
   // Download Button Click
   downloadBtn.addEventListener('click', () => {
