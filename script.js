@@ -334,34 +334,33 @@ const maxBits = Math.min(pixels.length, 3000 * 8); // Limit to prevent processin
           // Convert binary to text
           const extractedText = binaryToText(binary);
     
-if (extractedText.startsWith('MSG:') || extractedText.startsWith('ENC:')) {
+if (extractedText.startsWith('MSG:')) {
+  // Message is not encrypted
+  const message = extractedText.substring(4);
+  decodedMessage.value = message;
+  decodeResults.classList.remove('hidden');
+  showToast('Message successfully decoded!');
+} else if (extractedText.startsWith('ENC:')) {
+  // Message is encrypted
+  if (hasPasswordCheckbox.checked && decodePasswordInput.value) {
+    try {
+      const encryptedMessage = extractedText.substring(4);
+      const decryptedMessage = simpleDecrypt(encryptedMessage, decodePasswordInput.value);
+      decodedMessage.value = decryptedMessage;
+      decodeResults.classList.remove('hidden');
+      showToast('Message successfully decoded!');
+    } catch (error) {
+      showToast('Incorrect password or corrupted message.');
+      console.error('Decryption error:', error);
+    }
+  } else {
+    showToast('Image is password protected. Please check the password option and enter the correct password.');
+    decodeResults.classList.add('hidden');
+  }
+} else {
+  showToast('No hidden message found or the image format is not supported.');
+}
 
-            // Message is not encrypted
-            const message = extractedText.substring(4);
-            decodedMessage.value = message;
-            decodeResults.classList.remove('hidden');
-            showToast('Message successfully decoded!');
-          } else if (extractedText.startsWith('ENC:')) {
-            // Message is encrypted
-            if (hasPasswordCheckbox.checked && decodePasswordInput.value) {
-              try {
-                const encryptedMessage = extractedText.substring(4);
-                const decryptedMessage = simpleDecrypt(encryptedMessage, decodePasswordInput.value);
-                decodedMessage.value = decryptedMessage;
-                decodeResults.classList.remove('hidden');
-                showToast('Message successfully decoded!');
-              } catch (error) {
-                showToast('Incorrect password or corrupted message.');
-                console.error('Decryption error:', error);
-              }
-            } else {
-              // If the message is password-protected but no password is provided
-              showToast('Image is password protected. Please check the password option and enter the correct password.');
-              decodeResults.classList.add('hidden'); // Hide the results section
-            }
-          } else {
-            showToast('No hidden message found or the image format is not supported.');
-          }
     
           // Reset button state
           decodeBtn.innerHTML = '<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 9l-9 9-9-9"></path><path d="M3 9l9 9 9-9"></path><path d="M3 9h18"></path><path d="M21 9l-9-9-9 9"></path></svg> Decode Message';
@@ -529,34 +528,45 @@ function binaryToText(binary) {
 
 // Simple encryption/decryption functions
 function simpleEncrypt(text, key) {
+  const signature = 'CRYPTEX:'; // Unique identifier
+  const messageWithSignature = signature + text;
+
   let result = '';
   const keySum = key.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   
-  for (let i = 0; i < text.length; i++) {
-    const charCode = text.charCodeAt(i);
+  for (let i = 0; i < messageWithSignature.length; i++) {
+    const charCode = messageWithSignature.charCodeAt(i);
     const keyChar = key.charCodeAt(i % key.length);
     const encryptedChar = String.fromCharCode(charCode ^ keyChar ^ (keySum % 256));
     result += encryptedChar;
   }
-  
-  return btoa(result); // Base64 encode for safer transmission
+
+  return btoa(result); // Base64 encode
 }
 
+
 function simpleDecrypt(encryptedText, key) {
+  const signature = 'CRYPTEX:';
+
   try {
     const text = atob(encryptedText); // Base64 decode
     const keySum = key.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     let result = '';
-    
+
     for (let i = 0; i < text.length; i++) {
       const charCode = text.charCodeAt(i);
       const keyChar = key.charCodeAt(i % key.length);
       const decryptedChar = String.fromCharCode(charCode ^ keyChar ^ (keySum % 256));
       result += decryptedChar;
     }
-    
-    return result;
+
+    if (!result.startsWith(signature)) {
+      throw new Error('Invalid password');
+    }
+
+    return result.substring(signature.length); // Remove the signature
   } catch (e) {
     throw new Error('Decryption failed. Incorrect password or corrupted data.');
   }
 }
+
